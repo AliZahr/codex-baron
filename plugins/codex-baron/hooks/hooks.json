@@ -1,0 +1,52 @@
+{
+  "description": "Classify prompts, guard expensive reads, flag sensitive changes, and record local metadata-only telemetry.",
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
+            "timeout": 3,
+            "statusMessage": "Selecting an engineering route"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
+            "timeout": 3,
+            "statusMessage": "Checking routing policy"
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
+            "timeout": 3
+          }
+        ]
+      }
+    ]
+  }
+}

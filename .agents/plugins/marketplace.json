@@ -1,0 +1,20 @@
+{
+  "name": "codex-baron",
+  "interface": {
+    "displayName": "Codex Baron"
+  },
+  "plugins": [
+    {
+      "name": "codex-baron",
+      "source": {
+        "source": "local",
+        "path": "./plugins/codex-baron"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer-Tools"
+    }
+  ]
+}

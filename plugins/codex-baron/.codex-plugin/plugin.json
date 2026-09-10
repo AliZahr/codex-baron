@@ -1,0 +1,28 @@
+{
+  "name": "codex-baron",
+  "version": "1.0.0",
+  "description": "Automatically route engineering subtasks to efficient Codex agents while reserving deeper models for high-risk reasoning.",
+  "author": {
+    "name": "Ali Zahr",
+    "url": "https://github.com/AliZahr"
+  },
+  "homepage": "https://github.com/AliZahr/codex-baron",
+  "repository": "https://github.com/AliZahr/codex-baron",
+  "license": "MIT",
+  "keywords": ["engineering", "routing", "subagents", "cost-control", "codex"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Codex Baron",
+    "shortDescription": "Route coding work to the right Codex agent.",
+    "longDescription": "Classifies engineering requests, delegates bounded work to efficient specialized agents, guards against expensive full-file reads, and records privacy-preserving local routing telemetry.",
+    "developerName": "Ali Zahr",
+    "category": "Developer Tools",
+    "capabilities": ["Routing", "Subagents", "Hooks", "Telemetry"],
+    "defaultPrompt": [
+      "Implement this change and route each subtask appropriately.",
+      "Analyze this repository efficiently before proposing a fix.",
+      "Generate tests, then have the senior reviewer validate them."
+    ],
+    "brandColor": "#1DB954"
+  }
+}

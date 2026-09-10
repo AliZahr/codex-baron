@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "large_file_lines": 500,
+  "telemetry_enabled": true,
+  "prompt_routing_enabled": true,
+  "large_read_guard_enabled": true,
+  "sensitive_review_enabled": true,
+  "sensitive_patterns": [
+    "auth", "oauth", "permission", "security", "crypto", "secret", "token",
+    "payment", "billing", "checkout", "invoice", "migration", "terraform",
+    "infrastructure", ".github/workflows", "concurrency", "transaction"
+  ]
+}
