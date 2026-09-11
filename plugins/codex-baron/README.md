@@ -12,12 +12,36 @@ It provides:
 - conservative senior-review recommendations for sensitive paths;
 - local metadata-only telemetry and a reporting command.
 
-## Install from GitHub
+## Install
+
+### Codex desktop app
+
+Codex Baron is distributed through its GitHub marketplace. Add that marketplace once from a terminal:
+
+```bash
+codex plugin marketplace add AliZahr/codex-baron
+```
+
+Then install it in the Codex application:
+
+1. Open the **Plugins** tab in the ChatGPT desktop app.
+2. Open **Personal**, search for **Codex Baron**, and open its details.
+3. Select the **+** button to install it.
+4. Start a new Codex task so the bundled skill and hooks are loaded.
+5. Review and trust the plugin hooks when Codex prompts you. They run the bundled Python routing script locally.
+
+If Codex Baron does not appear immediately after adding the marketplace, reopen the Plugins tab or restart the desktop app.
+
+### Codex CLI
+
+Install directly from the terminal with:
 
 ```bash
 codex plugin marketplace add AliZahr/codex-baron
 codex plugin add codex-baron@codex-baron
 ```
+
+You can also start `codex`, enter `/plugins`, switch to the Codex Baron marketplace, open the plugin, and install it from the interactive browser.
 
 For local development from the repository root:
 
@@ -26,7 +50,7 @@ codex plugin marketplace add "$PWD"
 codex plugin add codex-baron@codex-baron
 ```
 
-Start a new Codex task after installation so the plugin's skills and hooks are loaded. Review and trust the plugin hooks when Codex prompts you; the hooks execute the bundled Python script locally.
+Whichever installation method you use, start a new Codex task or CLI session afterward. Codex loads newly installed plugin skills and hooks when a new task begins.
 
 The qualified production runtime is Python 3.10 or newer on macOS and Linux. Windows is not yet supported: the hook command uses a POSIX environment launcher, and the repository installer uses directory-descriptor and no-follow filesystem operations available on the qualified platforms.
 
@@ -88,6 +112,17 @@ Discovery workers receive a minimal self-contained brief without the parent tran
 ## How it works
 
 Baron is an orchestration policy around the normal Codex primary agent. It does not hand the full conversation to a cheaper model or replace the primary. The primary keeps ownership of user intent, decomposition, decisions, integration, diff review, tests, and the final response. Specialists receive only concrete, bounded subtasks whose results the primary can verify.
+
+In practice, the workflow is:
+
+1. You describe the engineering outcome normally; no special command is required.
+2. Before the turn starts, Baron's local hook classifies the prompt by intent, risk, and likely delegation benefit.
+3. Routine work stays with the primary Codex agent. Broad read-only exploration may be assigned to `bulk_reader`; explicitly delegated mechanical edits or tests can use `code_writer` or `test_writer`; debugging and sensitive decisions stay with the primary or `senior_reviewer`.
+4. A delegated specialist receives a small, self-contained assignment instead of the whole conversation.
+5. Lifecycle guards enforce one discovery owner, a bounded command budget, and a real worker handoff.
+6. The primary verifies the evidence, integrates any changes, runs appropriate checks, and gives you the final result.
+
+Baron recommends and constrains routing; Codex still controls execution, sandbox permissions, approval prompts, and the final answer. If a useful delegation cannot start, Baron permits a bounded local fallback so the task can continue without claiming that delegation succeeded.
 
 ```text
 User prompt
