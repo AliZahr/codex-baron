@@ -8,23 +8,28 @@ import sys
 import tempfile
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from router_hook import classify_prompt, find_large_full_read  # noqa: E402
+from router_hook import find_large_full_read, recommend_route  # noqa: E402
 
 
 SCENARIOS = [
-    ("Find every caller of the checkout service", "bulk_reader"),
-    ("Generate a typed configuration stub", "code_writer"),
-    ("Add unit tests and fixtures for retries", "test_writer"),
-    ("Debug a race condition in payment authorization", "senior_reviewer"),
-    ("Rename this local variable", "primary"),
+    ("Find every caller of the checkout service", "gpt-5.6-sol", "bulk_reader"),
+    ("Generate a typed configuration stub", "gpt-5.6-sol", "primary"),
+    ("Delegate the configuration stub to code_writer", "gpt-5.6-sol", "code_writer"),
+    ("Add unit tests and fixtures for retries", "gpt-5.6-sol", "primary"),
+    ("Delegate retry fixtures to test_writer", "gpt-5.6-sol", "test_writer"),
+    ("Debug a race condition in payment authorization", "gpt-5.6-sol", "primary"),
+    ("Delegate the security review to senior_reviewer", "gpt-5.6-sol", "senior_reviewer"),
+    ("Trace the complete authentication flow without modifying code", "gpt-5.6-sol", "bulk_reader"),
+    ("Find the Foo declaration", "gpt-5.6-sol", "primary"),
+    ("Rename this local variable", "gpt-5.6-sol", "primary"),
 ]
 
 
 def main() -> int:
     correct = 0
     print("prompt-routing benchmark")
-    for prompt, expected in SCENARIOS:
-        actual, reason = classify_prompt(prompt)
+    for prompt, primary_model, expected in SCENARIOS:
+        actual, reason = recommend_route(prompt, primary_model=primary_model)
         ok = actual == expected
         correct += int(ok)
         print(f"  {'PASS' if ok else 'FAIL'} {expected:16s} <- {prompt} ({reason})")

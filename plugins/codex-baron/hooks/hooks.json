@@ -15,7 +15,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|apply_patch",
+        "matcher": "Bash|apply_patch|Agent|spawn_agent|wait|wait_agent|wait_threads|functions.collaboration.spawn_agent|functions.collaboration.wait_agent|collaboration.spawn_agent|collaboration.wait_agent",
         "hooks": [
           {
             "type": "command",
@@ -32,7 +32,8 @@
           {
             "type": "command",
             "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
-            "timeout": 3
+            "timeout": 3,
+            "statusMessage": "Checking discovery ownership"
           }
         ]
       }
@@ -43,7 +44,8 @@
           {
             "type": "command",
             "command": "/usr/bin/env python3 \"$PLUGIN_ROOT/scripts/router_hook.py\"",
-            "timeout": 3
+            "timeout": 3,
+            "statusMessage": "Releasing discovery ownership"
           }
         ]
       }
