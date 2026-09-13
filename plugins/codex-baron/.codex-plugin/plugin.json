@@ -1,6 +1,6 @@
 {
   "name": "codex-baron",
-  "version": "1.0.0+codex.20260911065504",
+  "version": "1.0.0+codex.a46d7e8fc567381f5f92687d8c6d1b47d436cdcf29089c2e074a268f4a5a0eca",
   "description": "Route engineering subtasks to efficient Codex agents and compare paired token usage against a non-Baron baseline.",
   "author": {
     "name": "Ali Zahr",
