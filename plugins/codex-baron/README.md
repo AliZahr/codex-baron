@@ -109,6 +109,14 @@ Removal uses the prior manifest digests, so it remains safe after the installed 
 
 ## Use
 
+For GitHub-imported ChatGPT workspaces tracking `main`, updates sync daily. An administrator must initially import
+`https://github.com/AliZahr/codex-baron` at the repository root, track `main`, and set the installation policy to
+Installed for the desired roles; **Sync now** requests an immediate sync. Generated `.codex/agents` still require
+rerunning `configure_repo.py`.
+Automatic stamping requires the workflow's GitHub Actions token to receive `contents: write`; branch rules must allow
+that Actions workflow to push directly or explicitly bypass its required-PR/check rules. Individual installs should run `codex plugin marketplace upgrade codex-baron`, then
+`codex plugin add codex-baron@codex-baron`, and start a new task.
+
 Prompt normally. Examples:
 
 ```text

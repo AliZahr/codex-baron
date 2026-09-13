@@ -102,3 +102,11 @@ Generate fixtures matching the adjacent test suite.
 ```
 
 See [the detailed plugin documentation](plugins/codex-baron/README.md) for routing precedence, lifecycle enforcement, configuration, privacy, telemetry, production qualification, verification, and rollout guidance.
+
+GitHub-imported ChatGPT workspaces tracking `main` sync daily; an administrator must initially import
+`https://github.com/AliZahr/codex-baron` at repository root, track `main`, and set the installation policy to
+Installed for the desired roles. **Sync now** requests an immediate sync. Generated `.codex/agents` files still
+require rerunning `configure_repo.py`.
+Automatic stamping requires the workflow's GitHub Actions token to receive `contents: write`; branch rules must allow
+that Actions workflow to push directly or explicitly bypass its required-PR/check rules. Individual installs should run `codex plugin marketplace upgrade codex-baron`, then
+`codex plugin add codex-baron@codex-baron`, and start a new task.

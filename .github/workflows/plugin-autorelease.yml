@@ -1,0 +1,117 @@
+name: Plugin autorelease
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: plugin-autorelease-main
+  cancel-in-progress: false
+jobs:
+  test:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - run: python3 -m unittest discover -s plugins/codex-baron/tests
+      - run: python3 -m py_compile plugins/codex-baron/scripts/*.py
+  prepare:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    needs: test
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    outputs:
+      base_sha: ${{ steps.prepare.outputs.base_sha }}
+      changed: ${{ steps.prepare.outputs.changed }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 0
+      - id: prepare
+        name: Prepare manifest artifact if still current
+        run: |
+          set -eu
+          manifest=plugins/codex-baron/.codex-plugin/plugin.json
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          git fetch origin main
+          if ! git diff --quiet HEAD...origin/main -- plugins/codex-baron .agents/plugins/marketplace.json; then
+            echo "A later releasable change superseded this run; exiting."
+            exit 0
+          fi
+          git reset --hard origin/main
+          GITHUB_ENV=/dev/null GITHUB_PATH=/dev/null GITHUB_OUTPUT=/dev/null GITHUB_STEP_SUMMARY=/dev/null \
+            python3 plugins/codex-baron/scripts/stamp_plugin.py .
+          if git diff --quiet -- "$manifest"; then exit 0; fi
+          test "$(git diff --name-only)" = "$manifest"
+          install -m 0644 "$manifest" "$RUNNER_TEMP/plugin.json"
+          echo "base_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Upload prepared manifest
+        if: steps.prepare.outputs.changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: plugin-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/plugin.json
+          if-no-files-found: error
+          retention-days: 1
+  publish:
+    if: needs.prepare.outputs.changed == 'true'
+    needs: prepare
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
+          ref: main
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: plugin-manifest-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/plugin-manifest
+      - id: commit
+        name: Validate artifact and prepare commit
+        env:
+          EXPECTED_BASE: ${{ needs.prepare.outputs.base_sha }}
+        run: |
+          set -eu
+          manifest=plugins/codex-baron/.codex-plugin/plugin.json
+          prepared="$RUNNER_TEMP/plugin-manifest/plugin.json"
+          echo "publish=false" >> "$GITHUB_OUTPUT"
+          if [ "$(git rev-parse HEAD)" != "$EXPECTED_BASE" ]; then
+            echo "Main advanced; its workflow will prepare the current release."
+            exit 0
+          fi
+          test -f "$prepared"
+          test ! -L "$prepared"
+          test "$(find "$RUNNER_TEMP/plugin-manifest" -type f | wc -l | tr -d ' ')" = 1
+          jq -e '.name == "codex-baron" and (.version | type == "string") and (.version | test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\+codex\\.[0-9a-f]{64}$"))' "$prepared" >/dev/null
+          base_version=$(jq -er '.version | split("+")[0]' "$manifest")
+          prepared_base=$(jq -er '.version | split("+")[0]' "$prepared")
+          test "$prepared_base" = "$base_version"
+          test "$(jq -cS 'del(.version)' "$prepared")" = "$(jq -cS 'del(.version)' "$manifest")"
+          install -m 0644 "$prepared" "$manifest"
+          test "$(git diff --name-only)" = "$manifest"
+          git add -- "$manifest"
+          test "$(git diff --cached --name-only)" = "$manifest"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'chore(plugin): stamp release'
+          echo "publish=true" >> "$GITHUB_OUTPUT"
+      - name: Push prepared manifest commit
+        if: steps.commit.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          test "$(git diff-tree --no-commit-id --name-only -r HEAD)" = "plugins/codex-baron/.codex-plugin/plugin.json"
+          git -c core.hooksPath=/dev/null -c credential.helper= push --no-verify \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
