@@ -71,6 +71,19 @@ Plugin skills and hooks load from the plugin. Current custom-agent profiles are 
 python3 plugins/codex-baron/scripts/configure_repo.py /absolute/path/to/repository
 ```
 
+The installer accepts repeatable per-role overrides and a mutually exclusive service-tier switch:
+
+```bash
+python3 plugins/codex-baron/scripts/configure_repo.py /absolute/path/to/repository \
+  --model bulk_reader=gpt-5.6-terra --model senior_reviewer=gpt-5.6-sol \
+  --reasoning code_writer=medium --fast
+```
+
+Use `--no-fast` or omit both speed flags for standard service tier. Each run is declarative: repeat every
+model and reasoning override you want to keep, because omitted roles return to the bundled defaults. Reasoning
+values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`; model/reasoning
+compatibility is the user's responsibility.
+
 Review the generated `.codex/agents/*.toml`, `.codex/codex-baron.json`, and `.codex/codex-baron-managed.json`, then commit them if they should apply to the team. The managed manifest contains only its schema, the plugin name/version, fixed repository-relative filenames, file modes, and SHA-256 digests; it contains no repository path, prompt, source content, or account data.
 
 For a personal machine that must route in frozen or third-party repositories without adding project files, install the reviewed profiles at user scope instead:

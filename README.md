@@ -56,6 +56,19 @@ Codex Baron bundles the routing skill and hooks, but named custom-agent profiles
 python3 plugins/codex-baron/scripts/configure_repo.py /absolute/path/to/your/repository
 ```
 
+Profile settings may be selected per role; options can be repeated. For example:
+
+```bash
+python3 plugins/codex-baron/scripts/configure_repo.py /absolute/path/to/your/repository \
+  --model bulk_reader=gpt-5.6-terra --model code_writer=gpt-5.6-luna \
+  --reasoning bulk_reader=medium --fast
+```
+
+Use `--no-fast` (or omit both speed flags) for standard service tier. Each run is declarative: repeat every
+model and reasoning override you want to keep, because omitted roles return to the bundled defaults. Supported
+reasoning values are `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`, and `ultra`.
+Model/reasoning compatibility is the user's responsibility.
+
 Review the generated `.codex/agents/*.toml`, `.codex/codex-baron.json`, and `.codex/codex-baron-managed.json` files before committing them to the target repository. Running the same command later safely upgrades unchanged managed files and stops on local customizations that need manual review.
 
 ## How it works

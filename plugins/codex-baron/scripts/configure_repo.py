@@ -9,6 +9,7 @@ import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath
+import re
 import secrets
 import stat
 import sys
@@ -22,6 +23,9 @@ MANIFEST_RELATIVE = PurePosixPath(".codex/codex-baron-managed.json")
 MANIFEST_SCHEMA_VERSION = 1
 SHA256_HEX_LENGTH = 64
 MAX_MANAGED_FILE_BYTES = 1024 * 1024
+ROLES = ("bulk_reader", "code_writer", "test_writer", "senior_reviewer")
+REASONING_EFFORTS = ("none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra")
+MODEL_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]*$")
 
 
 class InstallError(Exception):
@@ -292,7 +296,40 @@ def _plugin_identity() -> tuple[str, str]:
     return PLUGIN_NAME, version
 
 
-def _source_files() -> dict[PurePosixPath, tuple[bytes, int]]:
+def _profile_bytes(data: bytes, role: str, models: dict[str, str], reasoning: dict[str, str], fast: bool) -> bytes:
+    text = data.decode("utf-8")
+    if role in models:
+        text = text.replace(f'model = "{_toml_value(text, "model")}"', f'model = "{models[role]}"', 1)
+    if role in reasoning:
+        text = text.replace(
+            f'model_reasoning_effort = "{_toml_value(text, "model_reasoning_effort")}"',
+            f'model_reasoning_effort = "{reasoning[role]}"',
+            1,
+        )
+    lines = text.splitlines()
+    lines = [line for line in lines if not line.startswith("service_tier =")]
+    if fast:
+        for index, line in enumerate(lines):
+            if line.startswith("model_reasoning_effort ="):
+                lines.insert(index + 1, 'service_tier = "fast"')
+                break
+    return ("\n".join(lines) + "\n").encode("utf-8")
+
+
+def _toml_value(text: str, key: str) -> str:
+    for line in text.splitlines():
+        if line.startswith(f"{key} = "):
+            return line.split('"', 2)[1]
+    raise InstallError(f"bundled agent profile has no {key}: {key}")
+
+
+def _source_files(
+    models: dict[str, str] | None = None,
+    reasoning: dict[str, str] | None = None,
+    fast: bool = False,
+) -> dict[PurePosixPath, tuple[bytes, int]]:
+    models = models or {}
+    reasoning = reasoning or {}
     sources = sorted((PLUGIN_ROOT / "agents").glob("*.toml"))
     if not sources:
         raise InstallError("Bundled agent profiles are missing; reinstall Codex Baron.")
@@ -303,11 +340,16 @@ def _source_files() -> dict[PurePosixPath, tuple[bytes, int]]:
     try:
         for source in sources:
             relative = PurePosixPath(".codex/agents") / source.name
-            result[relative] = (source.read_bytes(), stat.S_IMODE(source.stat().st_mode))
-        result[CONFIG_RELATIVE] = (
-            default_config.read_bytes(),
-            stat.S_IMODE(default_config.stat().st_mode),
-        )
+            result[relative] = (
+                _profile_bytes(source.read_bytes(), source.stem, models, reasoning, fast),
+                stat.S_IMODE(source.stat().st_mode),
+            )
+        config_data = default_config.read_bytes()
+        if "bulk_reader" in models:
+            config = json.loads(config_data.decode("utf-8"))
+            config["bulk_reader_model"] = models["bulk_reader"]
+            config_data = (json.dumps(config, indent=2) + "\n").encode("utf-8")
+        result[CONFIG_RELATIVE] = (config_data, stat.S_IMODE(default_config.stat().st_mode))
     except OSError as exc:
         raise InstallError(f"cannot read bundled repository configuration: {exc}") from exc
     return result
@@ -469,17 +511,57 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--force", action="store_true", help="Replace or remove known managed targets after review")
     parser.add_argument("--dry-run", action="store_true", help="Show the complete plan without writing")
     parser.add_argument(
+        "--model", action="append", default=[], metavar="ROLE=MODEL", help="Override a role's model"
+    )
+    parser.add_argument(
+        "--reasoning",
+        action="append",
+        default=[],
+        metavar="ROLE=EFFORT",
+        help="Override a role's reasoning effort",
+    )
+    speed = parser.add_mutually_exclusive_group()
+    speed.add_argument(
+        "--fast",
+        action="store_true",
+        help='Add service_tier = "fast" to all profiles (Codex maps it to priority processing)',
+    )
+    speed.add_argument("--no-fast", action="store_true", help="Use the standard service tier")
+    parser.add_argument(
         "--remove",
         action="store_true",
         help="Remove files unchanged since their recorded managed version (customized files require --force)",
     )
     args = parser.parse_args(argv)
+    models: dict[str, str] = {}
+    reasoning: dict[str, str] = {}
+    def assignments(values: list[str], label: str) -> dict[str, str]:
+        result: dict[str, str] = {}
+        for value in values:
+            if value.count("=") != 1:
+                parser.error(f"invalid {label} assignment {value!r}; expected ROLE=VALUE")
+            role, setting = value.split("=", 1)
+            if role not in ROLES:
+                parser.error(f"unknown role {role!r}; expected one of: {', '.join(ROLES)}")
+            if not setting:
+                parser.error(f"empty {label} for role {role!r}")
+            if label == "model" and not MODEL_ID_PATTERN.fullmatch(setting):
+                parser.error(
+                    f"invalid model ID {setting!r}; use letters, digits, '.', '_', ':', or '-'"
+                )
+            result[role] = setting
+        return result
+    models = assignments(args.model, "model")
+    reasoning = assignments(args.reasoning, "reasoning")
+    for role, effort in reasoning.items():
+        if effort not in REASONING_EFFORTS:
+            parser.error(f"unsupported reasoning value {effort!r}; expected one of: {', '.join(REASONING_EFFORTS)}")
     repo = args.repo.expanduser().resolve()
     if not repo.is_dir():
         parser.error(f"repository directory does not exist: {repo}")
 
     try:
-        sources = _source_files()
+        sources = _source_files(models, reasoning, args.fast)
         _name, version = _plugin_identity()
         if args.remove:
             actions, messages, conflicts = _plan_remove(repo, sources, args.force)
